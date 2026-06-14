@@ -231,7 +231,3 @@ The `todoist_reports` package exposes these functions for reuse or extension:
 - CSV export alongside Markdown
 - Simple chart of tasks completed per day
 - Automated weekly email report via cron or Task Scheduler
-
-## License
-
-This project is for personal use. Add a license file if you plan to share or open-source it.
