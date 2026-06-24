@@ -11,6 +11,7 @@ Useful when you want a quick answer to: *"What did I actually finish today, yest
 - Nest completed subtasks under their parent task, even when the parent is still open
 - Show completion timestamps in your local timezone using **dd-mm-yyyy** dates
 - Print reports to the terminal and save them as Markdown files
+- Email reports as attachments via SMTP for cron jobs
 - Keep API credentials out of source code via `.env`
 
 ## Requirements
@@ -73,6 +74,28 @@ Each command prints the report to the terminal and saves a Markdown file in the 
 
 The older single-purpose scripts (`report_today.py`, `report_yesterday.py`, `report_last_week.py`) still work and call the same logic.
 
+### Email reports (cron)
+
+Use `scripts/report_email.py` to generate a report and send it as a Markdown attachment. It accepts the same `--period` and `--from` / `--to` options as `report.py`. Configure SMTP settings in `.env` first (see Configuration).
+
+| Period | Command |
+|--------|---------|
+| `last-week` | `python scripts/report_email.py --period last-week` |
+| `yesterday` | `python scripts/report_email.py --period yesterday` |
+| custom range | `python scripts/report_email.py --from 01-05-2026 --to 31-05-2026` |
+
+Example cron entry (Saturday 8 AM, Sat–Fri last-week report):
+
+```bash
+0 8 * * 6 cd /path/to/Todoist-reports && .venv/bin/python scripts/report_email.py --period last-week >> reports/cron.log 2>&1
+```
+
+Test manually before enabling cron:
+
+```bash
+python scripts/report_email.py --period last-week
+```
+
 ## Configuration
 
 Environment variables are loaded from `.env` in the project root.
@@ -82,10 +105,60 @@ Environment variables are loaded from `.env` in the project root.
 | `TODOIST_API_TOKEN` | Yes | Your Todoist API token. `TODOIST_TOKEN` is also accepted as an alias. |
 | `TZ` | No | Timezone for date boundaries and displayed timestamps (e.g. `America/New_York`). Defaults to your system timezone. |
 | `WEEK_START_DAY` | No | First day of the week for `--period last-week` (`monday` … `sunday`, default `monday`). Set to `saturday` for Sat–Fri weeks. |
+| `SMTP_HOST` | For email | SMTP server hostname |
+| `SMTP_PORT` | No | SMTP port (default `587`) |
+| `SMTP_USER` | For email | SMTP login username |
+| `SMTP_PASSWORD` | For email | SMTP login password |
+| `EMAIL_TO` | For email | Recipient address(es), comma-separated |
+| `EMAIL_FROM` | No | Sender address (defaults to `SMTP_USER`) |
+| `SMTP_USE_TLS` | No | Use STARTTLS (default `true`; typical for port 587) |
+| `SMTP_USE_SSL` | No | Use implicit SSL (default `false`; typical for port 465) |
 
 **Getting your API token:** open [Todoist → Settings → Integrations](https://todoist.com/prefs/integrations), find the API token section, and copy your token into `.env`.
 
 Never commit `.env` to version control. It is listed in `.gitignore`.
+
+### Hostinger Email
+
+If you use [Hostinger Email](https://www.hostinger.com/support/1575756-how-to-get-email-account-configuration-details-for-hostinger-email/), find your account details in hPanel under **Emails → Manage → Connect Apps & Devices**. Use your **full email address** as `SMTP_USER`.
+
+**Titan Mail vs Hostinger Email:** Check your domain MX records. If they point to `mx1.hostinger.com`, use `SMTP_HOST=smtp.hostinger.com`. If you use Titan Mail, use `SMTP_HOST=smtp.titan.email` and enable **Settings → Enable Titan on other apps** in [Titan webmail](https://app.titan.email/mail/).
+
+Recommended setup for Hostinger Email (port 465, SSL):
+
+```
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=465
+SMTP_USER=you@yourdomain.com
+SMTP_PASSWORD=your_email_password
+EMAIL_FROM=you@yourdomain.com
+EMAIL_TO=you@yourdomain.com
+SMTP_USE_SSL=true
+SMTP_USE_TLS=false
+```
+
+Legacy Hostinger Email (non-Titan) uses `SMTP_HOST=smtp.hostinger.com` with the same port settings.
+
+Titan Mail uses `SMTP_HOST=smtp.titan.email` instead; enable third-party access in Titan webmail settings.
+
+If port 465 fails from your network, use port 587 with STARTTLS instead:
+
+```
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=587
+SMTP_USER=you@yourdomain.com
+SMTP_PASSWORD=your_email_password
+EMAIL_FROM=you@yourdomain.com
+EMAIL_TO=you@yourdomain.com
+SMTP_USE_TLS=true
+SMTP_USE_SSL=false
+```
+
+Test before enabling cron:
+
+```bash
+python scripts/report_email.py --period last-week
+```
 
 ## Report format
 
@@ -171,10 +244,12 @@ Both endpoints use Bearer token authentication. See the [Todoist API documentati
 Todoist-reports/
 ├── todoist_reports/          # Core library
 │   ├── __init__.py           # Public exports
-│   └── client.py             # API client, date logic, report generation
+│   ├── client.py             # API client, date logic, report generation
+│   └── email.py              # SMTP email delivery
 ├── scripts/                  # Runnable entry points
 │   ├── _bootstrap.py         # Adds project root to Python path
 │   ├── report.py             # Unified CLI (--period flag)
+│   ├── report_email.py       # Generate report and email attachment
 │   ├── report_today.py       # Convenience wrapper
 │   ├── report_yesterday.py   # Convenience wrapper
 │   └── report_last_week.py   # Convenience wrapper
@@ -196,6 +271,7 @@ The `todoist_reports` package exposes these functions for reuse or extension:
 | `run_period_report(period)` | Generate a report for `today`, `yesterday`, or `last-week` |
 | `resolve_period(period, tz)` | Return `(title, since, until, filename)` for a named period |
 | `generate_report(title, since, until, filename)` | Fetches data, builds the report, saves and prints it |
+| `send_report_email(report_path, subject)` | Email a saved report as a Markdown attachment |
 
 ## Troubleshooting
 
@@ -214,6 +290,10 @@ The `todoist_reports` package exposes these functions for reuse or extension:
 - Run scripts from the project root, not from inside `scripts/`.
 - Ensure your virtual environment is activated and dependencies are installed.
 
+**`Missing email configuration`**
+- Set `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_TO` in `.env`.
+- Test with `python scripts/report_email.py --period yesterday` before adding a cron job.
+
 ## Development
 
 ### Dependencies
@@ -231,4 +311,3 @@ The `todoist_reports` package exposes these functions for reuse or extension:
 
 - CSV export alongside Markdown
 - Simple chart of tasks completed per day
-- Automated weekly email report via cron or Task Scheduler

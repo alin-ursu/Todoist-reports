@@ -7,6 +7,7 @@ from todoist_reports.client import (
     get_timezone,
     last_week_bounds,
 )
+from todoist_reports.email import send_report_email
 from todoist_reports.periods import (
     DATE_FORMAT,
     DATE_FORMAT_HELP,
@@ -34,4 +35,5 @@ __all__ = [
     "resolve_period",
     "run_custom_range_report",
     "run_period_report",
+    "send_report_email",
 ]
