@@ -6,7 +6,7 @@ Useful when you want a quick answer to: *"What did I actually finish today, yest
 
 ## Features
 
-- Report completed tasks for **today**, **yesterday**, or the **previous calendar week** (Monday–Sunday)
+- Report completed tasks for **today**, **yesterday**, or the **previous calendar week** (configurable week start, default Monday–Sunday)
 - Group tasks by project with human-readable names
 - Nest completed subtasks under their parent task, even when the parent is still open
 - Show completion timestamps in your local timezone using **dd-mm-yyyy** dates
@@ -81,6 +81,7 @@ Environment variables are loaded from `.env` in the project root.
 |----------|----------|-------------|
 | `TODOIST_API_TOKEN` | Yes | Your Todoist API token. `TODOIST_TOKEN` is also accepted as an alias. |
 | `TZ` | No | Timezone for date boundaries and displayed timestamps (e.g. `America/New_York`). Defaults to your system timezone. |
+| `WEEK_START_DAY` | No | First day of the week for `--period last-week` (`monday` … `sunday`, default `monday`). Set to `saturday` for Sat–Fri weeks. |
 
 **Getting your API token:** open [Todoist → Settings → Integrations](https://todoist.com/prefs/integrations), find the API token section, and copy your token into `.env`.
 
@@ -150,7 +151,7 @@ scripts/report.py
 ### Date ranges
 
 - **Today / yesterday:** midnight to midnight in your configured timezone.
-- **Last week:** the previous Monday 00:00 through the following Sunday 23:59 (implemented as Monday 00:00 of the current week as the exclusive end boundary).
+- **Last week:** the previous 7-day block ending the day before the current week starts. With the default `WEEK_START_DAY=monday`, that is Monday 00:00 through Sunday 23:59. With `WEEK_START_DAY=saturday`, it is Saturday 00:00 through Friday 23:59 — useful when you run the report every Saturday morning via cron.
 
 The Todoist API treats the `until` parameter as **exclusive**, so a full day is requested as `since=2026-06-05T00:00:00` and `until=2026-06-06T00:00:00`.
 

@@ -30,6 +30,29 @@ def get_timezone() -> tzinfo:
     return datetime.now().astimezone().tzinfo or ZoneInfo("UTC")
 
 
+_WEEKDAY_NAMES = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+
+
+def get_week_start_weekday() -> int:
+    """Return the weekday index (Monday=0) that starts a calendar week."""
+    load_dotenv(PROJECT_ROOT / ".env")
+    value = (os.getenv("WEEK_START_DAY") or "monday").strip().lower()
+    if value not in _WEEKDAY_NAMES:
+        valid = ", ".join(_WEEKDAY_NAMES)
+        raise ValueError(
+            f"Invalid WEEK_START_DAY {value!r}. Choose from: {valid}."
+        )
+    return _WEEKDAY_NAMES.index(value)
+
+
 def get_api_token() -> str:
     """Load and return the Todoist API token from .env."""
     load_dotenv(PROJECT_ROOT / ".env")
@@ -153,16 +176,20 @@ def day_bounds(target_day: date, tz: tzinfo) -> tuple[datetime, datetime]:
 
 
 def last_week_bounds(today: date, tz: tzinfo) -> tuple[datetime, datetime, date, date]:
-    """Return API bounds and display dates for the previous Mon–Sun week."""
-    days_since_monday = today.weekday()  # Monday = 0
-    this_week_monday = today - timedelta(days=days_since_monday)
-    last_week_monday = this_week_monday - timedelta(days=7)
-    last_week_sunday = this_week_monday - timedelta(days=1)
+    """Return API bounds and display dates for the previous calendar week.
 
-    since = datetime.combine(last_week_monday, time.min, tzinfo=tz)
-    # until is exclusive: current week's Monday 00:00 includes all of last Sunday
-    until = datetime.combine(this_week_monday, time.min, tzinfo=tz)
-    return since, until, last_week_monday, last_week_sunday
+    The week start day is configured via WEEK_START_DAY in .env (default: monday).
+    """
+    week_start_weekday = get_week_start_weekday()
+    days_since_start = (today.weekday() - week_start_weekday) % 7
+    this_week_start = today - timedelta(days=days_since_start)
+    last_week_start = this_week_start - timedelta(days=7)
+    last_week_end = this_week_start - timedelta(days=1)
+
+    since = datetime.combine(last_week_start, time.min, tzinfo=tz)
+    # until is exclusive: current week's start 00:00 includes all of last week's final day
+    until = datetime.combine(this_week_start, time.min, tzinfo=tz)
+    return since, until, last_week_start, last_week_end
 
 
 def format_completed_at(value: str, tz: tzinfo) -> str:

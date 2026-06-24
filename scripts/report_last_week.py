@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate a report of tasks completed during the previous calendar week.
 
-"Last week" means Monday through Sunday of the week before the current one.
+"Last week" is the 7-day block before the current week, based on WEEK_START_DAY
+in .env (default: monday).
 
 Usage (from project root):
     python scripts/report.py --period last-week
